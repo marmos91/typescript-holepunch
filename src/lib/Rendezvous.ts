@@ -97,14 +97,14 @@ export class Rendezvous extends EventEmitter
         {
             let peer: Peer = JSON.parse(message as string);
 
-            console.debug('Message received', peer);
+            console.log('Message received', peer);
 
             if(peer.id)
             {
                 peer.host = sender.address;
                 peer.port = sender.port;
 
-                console.debug('New peer registered', peer);
+                console.log('New peer registered', peer);
 
                 this._peers[peer.id] = peer;
             }
@@ -113,16 +113,16 @@ export class Rendezvous extends EventEmitter
 
             if(peer.remote)
             {
-                console.debug('Received an handshake request for a peer');
+                console.log('Received an handshake request for a peer');
                 if(this._peers[peer.remote])
                 {
-                    console.debug('Received an handshake request for an online peer');
+                    console.log('Received an handshake request for an online peer');
 
                     let response: Message = _.pick(this._peers[peer.remote], 'id', 'host', 'port');
                     response.type = MessageType.HANDSHAKE;
                     let message = JSON.stringify(response);
 
-                    console.debug('Sending back handshake response', response);
+                    console.log('Sending back handshake response', response);
 
                     (this._socket as dgram.Socket).send(message, 0, message.length, sender.port, sender.address);
                 }
