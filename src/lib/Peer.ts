@@ -148,13 +148,16 @@ export class Peer extends EventEmitter
      */
     private _holepunch(remote: Message)
     {
-        setInterval(function() {
+        console.log('Response received:', remote, 'Starting holepunch!!');
+        setInterval(() =>
+        {
+            console.log(`Holepunching on address ${remote.host}:${remote.port}`);
             let data = JSON.stringify({
                 type: MessageType.DATA,
                 body: "PUNCH",
             });
             this._socket.send(data, 0, data.length, remote.port, remote.host);
-        }, this._interval);
+        }, this._retry_interval);
     }
 
     // endregion
