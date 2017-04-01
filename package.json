@@ -2,7 +2,8 @@
   "name": "typescript-holepunch",
   "version": "0.0.1",
   "description": "Some holepunch strategies implementation written in Typescript",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -21,6 +22,10 @@
   },
   "homepage": "https://github.com/marmos91/typescript-holepunch#readme",
   "devDependencies": {
-    "@types/node": "^7.0.12"
+    "@types/node": "^7.0.12",
+    "@types/underscore": "^1.8.0"
+  },
+  "dependencies": {
+    "underscore": "^1.8.3"
   }
 }
