@@ -86,12 +86,7 @@ export class Rendezvous extends EventEmitter
     {
         return new Promise((resolve) =>
         {
-            this._socket.on('listening', () =>
-            {
-                console.log(`Server listening ${this._socket.address().address}:${this._socket.address().port}`);
-                resolve();
-            });
-
+            this._socket.on('listening', resolve);
             (this._socket as dgram.Socket).bind(this._port, this._host);
         });
     }
