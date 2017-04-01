@@ -68,13 +68,6 @@ export class Peer extends EventEmitter
         this._port = options && options.port || null;
         this._retry_interval = options && options.retry || 1000;
 
-        this._socket.on('message', (message, sender) => this._receive(message, sender));
-        this._socket.on('error', (error) =>
-        {
-            this._socket.close();
-            this.emit('error', error);
-        });
-
         this._socket = dgram.createSocket('udp4');
     }
 
@@ -88,7 +81,13 @@ export class Peer extends EventEmitter
         {
             this._socket.on('listening', () =>
             {
-                console.log(`Server listening ${this._socket.address().address}:${this._socket.address().port}`);
+                this._socket.on('message', (message, sender) => this._receive(message, sender));
+                this._socket.on('error', (error) =>
+                {
+                    this._socket.close();
+                    this.emit('error', error);
+                });
+
                 resolve();
             });
 
