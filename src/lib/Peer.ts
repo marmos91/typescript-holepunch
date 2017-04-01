@@ -4,7 +4,7 @@ import {EventEmitter} from 'events';
 // region interfaces
 
 export enum RendezvousProtocol {UDP = 0, TCP}
-export enum MessageType {DATA = 0, HANDSHAKE}
+export enum MessageType {PAYLOAD = 0, HANDSHAKE}
 
 /**
  * @member port {number}: (optional) specifies the port to listen onto
@@ -81,6 +81,7 @@ export class Peer extends EventEmitter
         {
             this._socket.on('listening', () =>
             {
+                console.log('Socket bound on port', this._socket.address().port);
                 this._socket.on('message', (message, sender) => this._receive(message, sender));
                 this._socket.on('error', (error) =>
                 {
@@ -118,20 +119,23 @@ export class Peer extends EventEmitter
      */
     private _receive(message: string | Buffer, sender: dgram.AddressInfo)
     {
+
         try
         {
             let data: Message = JSON.parse(message as string);
 
-            if(data.type)
+            switch(data.type)
             {
-                if(data.type === MessageType.HANDSHAKE)
+                case(MessageType.HANDSHAKE):
                 {
                     clearInterval(this._interval);
                     this._holepunch(data);
+                    break;
                 }
-                else if(data.type === MessageType.DATA)
+                case(MessageType.PAYLOAD):
                 {
                     this.emit("message", data, sender);
+                    break;
                 }
             }
         }
@@ -153,7 +157,7 @@ export class Peer extends EventEmitter
         {
             console.log(`Holepunching on address ${remote.host}:${remote.port}`);
             let data = JSON.stringify({
-                type: MessageType.DATA,
+                type: MessageType.PAYLOAD,
                 body: "PUNCH",
             });
             this._socket.send(data, 0, data.length, remote.port, remote.host);

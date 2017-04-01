@@ -6,7 +6,6 @@ let peer = new Peer('PeerA', {
 
 peer.listen().then(() =>
 {
-    console.log('Socket bound');
     peer.on('message', (message) =>
     {
         console.log(message.toString());
