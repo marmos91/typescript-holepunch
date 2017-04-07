@@ -5,6 +5,7 @@ const utp = require('utp-native');
 
 export enum RendezvousProtocol {UTP = 0, UDT, TCP}
 export enum MessageType {PAYLOAD = 0, HANDSHAKE, HOLEPUNCH, ACK}
+export enum HandshakeRequestType {REGISTRATION = 0, HOLEPUNCH}
 
 /**
  * @member port {number}: (optional) specifies the port to listen onto
@@ -19,6 +20,7 @@ export interface RendezvousOptions
     host?: string;
     protocol?: RendezvousProtocol
     retry?: number;
+    initiator?: boolean
 }
 
 /**
@@ -36,6 +38,20 @@ export interface Message
     port: number;
     type: MessageType;
     body?: string | Buffer;
+}
+
+export interface Peer
+{
+    id: string;
+    host?: string;
+    port?: number;
+}
+
+export interface HandshakeRequest
+{
+    type: HandshakeRequestType;
+    peer?: Peer;
+    remote?: string;
 }
 
 // endregion
@@ -57,6 +73,7 @@ export class Peer extends EventEmitter
     private _protocol: RendezvousProtocol;
     private _retry_interval: number;
     private _connected: boolean;
+    private _initiator: boolean;
     private _rendezvous: {
         host: string,
         port: number
@@ -77,6 +94,7 @@ export class Peer extends EventEmitter
         this._port = options && options.port || null;
         this._retry_interval = options && options.retry || 1000;
         this._protocol = options && options.protocol || RendezvousProtocol.UTP;
+        this._initiator = options && options.initiator || false;
         this._connected = false;
 
         this._socket = utp();
@@ -100,6 +118,22 @@ export class Peer extends EventEmitter
                     this.emit('error', error);
                 });
 
+                if(!this._initiator)
+                {
+                    console.log('Peer set as receiver, registering on signaling server.');
+                    this._interval = setInterval(() =>
+                    {
+                        let data = JSON.stringify({
+                            type: HandshakeRequestType.REGISTRATION,
+                            peer: {
+                                id: this._id
+                            }
+                        });
+
+                        this._socket.send(Buffer.from(data), 0, data.length, this._rendezvous.port, this._rendezvous.host);
+                    }, this._retry_interval);
+                }
+
                 resolve();
             });
 
@@ -110,22 +144,22 @@ export class Peer extends EventEmitter
     /**
      * Method that sends the handshake request to the rendezvous server
      * @param peer_id {string}: The id of the peer to connect to.
+     * @param onconnection
      */
     public get_connection_with(peer_id: string)
     {
+        if(!this._initiator)
+            throw new Error('Peer started with initiator = false');
+
         this._interval = setInterval(() =>
         {
-            let data = Buffer.from(JSON.stringify({"id": this._id, "remote": peer_id}));
-            this._socket.send(data, 0, data.length, this._rendezvous.port, this._rendezvous.host);
+            let data = JSON.stringify({
+                type: HandshakeRequestType.HOLEPUNCH,
+                remote: peer_id
+            });
+
+            this._socket.send(Buffer.from(data), 0, data.length, this._rendezvous.port, this._rendezvous.host);
         }, this._retry_interval);
-    }
-
-    public send(data: Buffer, offset: number, length: number)
-    {
-        if(!this._connected)
-            throw new Error('You are not connected yet');
-
-        this._socket.send(data, offset, length, this._remote.port, this._remote.host);
     }
 
     // region holepunch
@@ -155,8 +189,9 @@ export class Peer extends EventEmitter
         {
             case(MessageType.HANDSHAKE):
             {
+                console.log('Starting holepunch');
                 clearInterval(this._interval);
-                this._holepunch(data);
+                //this._holepunch(data);
                 break;
             }
             case(MessageType.HOLEPUNCH):
@@ -173,15 +208,9 @@ export class Peer extends EventEmitter
             case(MessageType.ACK):
             {
                 console.log('Received an ACK packet');
-                this._connected = true;
-
-                let data = Buffer.from(JSON.stringify({
-                    type: MessageType.PAYLOAD,
-                    body: 'Hello my dear',
-                }));
+                this._socket.connect(this._remote.port, this._remote.host);
 
                 console.log('Sending message', data);
-                this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                 break;
             }
         }

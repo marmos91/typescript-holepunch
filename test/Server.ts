@@ -1,4 +1,4 @@
-import {Rendezvous} from './lib/Rendezvous';
+import {Rendezvous} from '../src/lib/Rendezvous';
 
 let server = new Rendezvous();
 

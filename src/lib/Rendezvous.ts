@@ -1,5 +1,4 @@
 import * as dgram from 'dgram';
-import * as net from 'net';
 import * as _ from 'underscore';
 import {EventEmitter} from 'events';
 
@@ -8,8 +7,9 @@ import {EventEmitter} from 'events';
 /**
  * Enum listing the protocol to use for the holepunch
  */
-export enum RendezvousProtocol {UDP = 0, TCP, UTP}
+export enum RendezvousProtocol {UDP = 0, TCP}
 export enum MessageType {DATA = 0, HANDSHAKE}
+export enum HandshakeRequestType {REGISTRATION = 0, HOLEPUNCH}
 
 /**
  * @member port {number}: (optional) specifies the port to listen onto
@@ -29,9 +29,15 @@ export interface RendezvousOptions
 export interface Peer
 {
     id: string;
-    host: string;
-    port: number;
-    remote: string;
+    host?: string;
+    port?: number;
+}
+
+export interface HandshakeRequest
+{
+    type: HandshakeRequestType;
+    peer?: Peer;
+    remote?: string;
 }
 
 export interface Message
@@ -54,7 +60,7 @@ export class Rendezvous extends EventEmitter
 {
     private _port: number;
     private _host: string;
-    private _socket: dgram.Socket | net.Socket;
+    private _socket: dgram.Socket;
     private _peers: Array<Peer>;
 
     constructor(options?: RendezvousOptions)
@@ -64,18 +70,13 @@ export class Rendezvous extends EventEmitter
         this._host = options && options.host || null;
         this._peers = [];
 
-        if(options && options.protocol === RendezvousProtocol.TCP)
-            this.emit('error', new Error('Not yet implemented'));
-        else
+        this._socket = dgram.createSocket('udp4');
+        this._socket.on('error', (error) =>
         {
-            this._socket = dgram.createSocket('udp4');
-            this._socket.on('error', (error) =>
-            {
-                (this._socket as dgram.Socket).close();
-                this.emit('error', error)
-            });
-            this._socket.on('message', (message, sender) => this._on_message(message, sender));
-        }
+            this._socket.close();
+            this.emit('error', error)
+        });
+        this._socket.on('message', (message, sender) => this._on_message(message, sender));
     }
 
     /**
@@ -87,7 +88,7 @@ export class Rendezvous extends EventEmitter
         return new Promise((resolve) =>
         {
             this._socket.on('listening', resolve);
-            (this._socket as dgram.Socket).bind(this._port, this._host);
+            this._socket.bind(this._port, this._host);
         });
     }
 
@@ -95,37 +96,60 @@ export class Rendezvous extends EventEmitter
     {
         try
         {
-            let peer: Peer = JSON.parse(message as string);
+            let request: HandshakeRequest = JSON.parse(message as string);
 
-            console.log('Message received', peer);
+            console.log('Message received', request);
 
-            if(peer.id)
+            switch(request.type)
             {
-                peer.host = sender.address;
-                peer.port = sender.port;
-
-                this._peers[peer.id] = peer;
-            }
-            else
-                return this.emit('error', 'No peer id provided in message');
-
-            if(peer.remote)
-            {
-                console.log('Received an handshake request for a peer');
-                if(this._peers[peer.remote])
+                case HandshakeRequestType.REGISTRATION:
                 {
-                    console.log('Received an handshake request for an online peer');
+                    if(request.peer.id)
+                    {
+                        request.peer.host = sender.address;
+                        request.peer.port = sender.port;
+                        this._peers[request.peer.id] = request.peer;
+                        console.log('Peer registered');
+                    }
 
-                    let response: Message = _.pick(this._peers[peer.remote], 'id', 'host', 'port');
-                    response.type = MessageType.HANDSHAKE;
-                    let message = JSON.stringify(response);
-
-                    console.log('Sending back handshake response', response);
-
-                    (this._socket as dgram.Socket).send(message, 0, message.length, sender.port, sender.address);
+                    break;
                 }
-                else
-                    console.error('Peer not yet registered');
+                case HandshakeRequestType.HOLEPUNCH:
+                {
+                    if(request.remote)
+                    {
+                        console.log('Received an handshake request for a peer');
+                        if(this._peers[request.remote])
+                        {
+                            console.log('Received an handshake request for an online peer');
+
+                            let sender_response: Message = _.pick(this._peers[request.remote], 'id', 'host', 'port');
+                            sender_response.type = MessageType.HANDSHAKE;
+
+                            let receiver_response: Message = {
+                                type: MessageType.HANDSHAKE,
+                                id: request.peer.id,
+                                host: sender.address,
+                                port: sender.port
+                            };
+
+                            let sender_message = JSON.stringify(sender_response);
+                            let receiver_message = JSON.stringify(receiver_response);
+
+                            console.log('Sending back handshake response', sender_response);
+
+                            this._socket.send(receiver_message, 0, receiver_message.length, sender_response.port, sender_response.host)
+                            this._socket.send(sender_message, 0, sender_message.length, sender.port, sender.address);
+                        }
+                        else
+                            console.error('Peer not yet registered');
+                    }
+                    break;
+                }
+                default:
+                {
+                    this.emit('error', new Error('Unknown request received'));
+                }
             }
         }
         catch(error)
