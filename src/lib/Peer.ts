@@ -1,10 +1,9 @@
-import * as dgram from 'dgram';
 import {EventEmitter} from 'events';
-import utp = require('utp-native');
+import {UTP, AddressInfo} from 'utp-native';
 
 // region interfaces
 
-export enum RendezvousProtocol {UDP = 0, TCP, UTP}
+export enum RendezvousProtocol {UTP = 0, UDT, TCP}
 export enum MessageType {PAYLOAD = 0, HANDSHAKE, HOLEPUNCH, ACK}
 
 /**
@@ -49,7 +48,7 @@ export interface Message
  */
 export class Peer extends EventEmitter
 {
-    private _socket: dgram.Socket;
+    private _socket: UTP;
     private _id: string;
     private _host: string;
     private _port: number;
@@ -77,10 +76,10 @@ export class Peer extends EventEmitter
         this._host = options && options.host || null;
         this._port = options && options.port || null;
         this._retry_interval = options && options.retry || 1000;
-        this._protocol = options && options.protocol || RendezvousProtocol.UDP;
+        this._protocol = options && options.protocol || RendezvousProtocol.UTP;
         this._connected = false;
 
-        this._socket = dgram.createSocket('udp4');
+        this._socket = new UTP();
     }
 
     /**
@@ -137,7 +136,7 @@ export class Peer extends EventEmitter
      * @param sender {dgram.AddressInfo}: Sender infos
      * @private
      */
-    private _receive(message: string | Buffer, sender: dgram.AddressInfo)
+    private _receive(message: string | Buffer, sender: AddressInfo)
     {
         let data: Message;
         try
