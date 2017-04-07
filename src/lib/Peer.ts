@@ -149,6 +149,9 @@ export class Peer extends EventEmitter
             this.emit('error', error);
         }
 
+        if(this._connected)
+            this.emit('message', data.body);
+
         switch(data.type)
         {
             case(MessageType.HANDSHAKE):
@@ -182,10 +185,6 @@ export class Peer extends EventEmitter
                 this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                 break;
             }
-            case(MessageType.PAYLOAD):
-            {
-                this.emit('message', data.body);
-            }
         }
     }
 
@@ -209,7 +208,7 @@ export class Peer extends EventEmitter
             console.log(`Holepunching on address ${this._remote.host}:${this._remote.port}`);
 
             let data = JSON.stringify({type: MessageType.HOLEPUNCH});
-            
+
             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
         }, this._retry_interval);
     }
