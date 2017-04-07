@@ -1,10 +1,12 @@
 import * as dgram from 'dgram';
+import utp = require('utp-native');
 import {EventEmitter} from 'events';
 
 // region interfaces
 
-export enum RendezvousProtocol {UDP = 0, TCP}
+export enum RendezvousProtocol {UDP = 0, TCP, UTP}
 export enum MessageType {PAYLOAD = 0, HANDSHAKE}
+export enum HandshakePacket {PUNCH, ACK}
 
 /**
  * @member port {number}: (optional) specifies the port to listen onto
@@ -35,7 +37,7 @@ export interface Message
     host: string;
     port: number;
     type: MessageType;
-    body?: string | Buffer;
+    body?: string | Buffer | HandshakePacket;
 }
 
 // endregion
@@ -53,8 +55,16 @@ export class Peer extends EventEmitter
     private _host: string;
     private _port: number;
     private _interval;
+    private _protocol: RendezvousProtocol;
     private _retry_interval: number;
+    private _connected: boolean;
     private _rendezvous: {
+        host: string,
+        port: number
+    };
+
+    private _remote: {
+        id: string,
         host: string,
         port: number
     };
@@ -67,6 +77,8 @@ export class Peer extends EventEmitter
         this._host = options && options.host || null;
         this._port = options && options.port || null;
         this._retry_interval = options && options.retry || 1000;
+        this._protocol = options && options.protocol || RendezvousProtocol.UDP;
+        this._connected = false;
 
         this._socket = dgram.createSocket('udp4');
     }
@@ -109,6 +121,14 @@ export class Peer extends EventEmitter
         }, this._retry_interval);
     }
 
+    public send(data: Buffer, offset: number, length: number)
+    {
+        if(!this._connected)
+            throw new Error('You are not connected yet');
+
+        this._socket.send(data, offset, length, this._remote.port, this._remote.host);
+    }
+
     // region holepunch
 
     /**
@@ -133,7 +153,28 @@ export class Peer extends EventEmitter
                 }
                 case(MessageType.PAYLOAD):
                 {
-                    this.emit("message", data.body, sender);
+                    if(this._connected)
+                        this.emit('message', data.body);
+
+                    switch(data.body)
+                    {
+                        case(HandshakePacket.PUNCH):
+                        {
+                            let data = JSON.stringify({
+                                type: MessageType.PAYLOAD,
+                                body: HandshakePacket.ACK,
+                            });
+
+                            this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
+                            break;
+                        }
+                        case(HandshakePacket.ACK):
+                        {
+                            this._connected = true;
+                            this._socket.send('Hello my dear', 0, 'Hello my dear'.length, this._remote.port, this._remote.host);
+                            break;
+                        }
+                    }
                     break;
                 }
             }
@@ -152,14 +193,16 @@ export class Peer extends EventEmitter
     private _holepunch(remote: Message)
     {
         console.log('Response received:', remote, 'Starting holepunch!!');
+        this._remote = {id: remote.id, host: remote.host, port: remote.port};
+
         setInterval(() =>
         {
-            console.log(`Holepunching on address ${remote.host}:${remote.port}`);
+            console.log(`Holepunching on address ${this._remote.host}:${this._remote.port}`);
             let data = JSON.stringify({
                 type: MessageType.PAYLOAD,
-                body: "PUNCH",
+                body: HandshakePacket.PUNCH,
             });
-            this._socket.send(data, 0, data.length, remote.port, remote.host);
+            this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
         }, this._retry_interval);
     }
 

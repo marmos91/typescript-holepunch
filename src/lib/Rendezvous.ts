@@ -8,7 +8,7 @@ import {EventEmitter} from 'events';
 /**
  * Enum listing the protocol to use for the holepunch
  */
-export enum RendezvousProtocol {UDP = 0, TCP}
+export enum RendezvousProtocol {UDP = 0, TCP, UTP}
 export enum MessageType {DATA = 0, HANDSHAKE}
 
 /**
