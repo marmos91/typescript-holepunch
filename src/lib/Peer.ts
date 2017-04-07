@@ -179,20 +179,17 @@ export class Peer extends EventEmitter
         try
         {
             data = JSON.parse(message as string);
+            console.log('Message received', data);
         }
         catch(error)
         {
             this.emit('error', error);
         }
 
-        if(this._connected)
-            this.emit('message', data.body);
-
         switch(data.type)
         {
             case(MessageType.HANDSHAKE):
             {
-                console.log('Starting holepunch');
                 clearInterval(this._interval);
                 this._holepunch(data);
                 break;
@@ -200,7 +197,6 @@ export class Peer extends EventEmitter
             case(MessageType.HOLEPUNCH):
             {
                 console.log('Received a punch packet, stopping punch');
-                clearInterval(this._punch_interval);
 
                 let data = Buffer.from(JSON.stringify({type: MessageType.ACK}));
 
@@ -210,6 +206,7 @@ export class Peer extends EventEmitter
             }
             case(MessageType.ACK):
             {
+                clearInterval(this._punch_interval);
                 console.log('Received an ACK packet');
 
                 this._socket.on('connection', (connection) => this.emit('connection', connection));
