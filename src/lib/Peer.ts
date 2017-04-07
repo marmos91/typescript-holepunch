@@ -119,7 +119,6 @@ export class Peer extends EventEmitter
      */
     private _receive(message: string | Buffer, sender: dgram.AddressInfo)
     {
-
         try
         {
             let data: Message = JSON.parse(message as string);
@@ -134,7 +133,7 @@ export class Peer extends EventEmitter
                 }
                 case(MessageType.PAYLOAD):
                 {
-                    this.emit("message", data, sender);
+                    this.emit("message", data.body, sender);
                     break;
                 }
             }
