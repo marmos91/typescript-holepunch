@@ -8,13 +8,14 @@ peer.listen().then(() =>
 {
     peer.on('connection', (connection) =>
     {
-       connection.on('data', (data) =>
-       {
-           console.log(data.toString());
-       });
+        console.log('P2P connection received');
+        connection.on('data', (data) =>
+        {
+            console.log(data.toString());
+        });
 
-       connection.on('error', error => console.error(error));
-       connection.on('close', () => console.log('Connection closed'));
+        connection.on('error', error => console.error(error));
+        connection.on('close', () => console.log('Connection closed'));
     });
     peer.on('error', error => console.error(error));
     peer.on('close', () => console.log('Peer closed'));

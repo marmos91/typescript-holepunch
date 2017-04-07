@@ -9,6 +9,7 @@ peer.listen().then(() =>
 {
     peer.on('connection', (connection) =>
     {
+        console.log('P2P connection established');
         connection.on('data', data => console.log(data.toString()));
         connection.send(Buffer.from(JSON.stringify({hello: 'hello'})));
     });

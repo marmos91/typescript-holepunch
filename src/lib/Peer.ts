@@ -194,7 +194,7 @@ export class Peer extends EventEmitter
             {
                 console.log('Starting holepunch');
                 clearInterval(this._interval);
-                //this._holepunch(data);
+                this._holepunch(data);
                 break;
             }
             case(MessageType.HOLEPUNCH):
@@ -211,9 +211,11 @@ export class Peer extends EventEmitter
             case(MessageType.ACK):
             {
                 console.log('Received an ACK packet');
-                this._socket.connect(this._remote.port, this._remote.host);
 
-                console.log('Sending message', data);
+                this._socket.on('connection', (connection) => this.emit('connection', connection));
+
+                console.log('Trying to connect with UTP');
+                this._socket.connect(this._remote.port, this._remote.host);
                 break;
             }
         }
