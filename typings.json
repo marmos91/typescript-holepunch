@@ -1,0 +1,9 @@
+{
+  "name": "typescript-holepunch",
+  "globalDependencies": {
+    "node": "registry:dt/node#6.0.0+20161102143327"
+  },
+  "dependencies": {
+    "utp-native": "file:custom_typings/utp-native/typings.json"
+  }
+}
