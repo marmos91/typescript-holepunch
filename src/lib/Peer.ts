@@ -1,12 +1,11 @@
 import * as dgram from 'dgram';
-import utp = require('utp-native');
 import {EventEmitter} from 'events';
+import utp = require('utp-native');
 
 // region interfaces
 
 export enum RendezvousProtocol {UDP = 0, TCP, UTP}
-export enum MessageType {PAYLOAD = 0, HANDSHAKE}
-export enum HandshakePacket {PUNCH, ACK}
+export enum MessageType {PAYLOAD = 0, HANDSHAKE, HOLEPUNCH, ACK}
 
 /**
  * @member port {number}: (optional) specifies the port to listen onto
@@ -37,7 +36,7 @@ export interface Message
     host: string;
     port: number;
     type: MessageType;
-    body?: string | Buffer | HandshakePacket;
+    body?: string | Buffer;
 }
 
 // endregion
@@ -88,7 +87,7 @@ export class Peer extends EventEmitter
      * Method that makes the peer listen on the the given port
      * @returns Promise <any>: resolved when peer has bound to the port
      */
-    public listen(): Promise <any>
+    public listen(): Promise<any>
     {
         return new Promise((resolve) =>
         {
@@ -140,64 +139,60 @@ export class Peer extends EventEmitter
      */
     private _receive(message: string | Buffer, sender: dgram.AddressInfo)
     {
+        let data: Message;
         try
         {
-            let data: Message = JSON.parse(message as string);
-
-            switch(data.type)
-            {
-                case(MessageType.HANDSHAKE):
-                {
-                    clearInterval(this._interval);
-                    this._holepunch(data);
-                    break;
-                }
-                case(MessageType.PAYLOAD):
-                {
-                    console.log('Receiving a payload');
-                    if(this._connected)
-                        this.emit('message', data.body);
-
-                    switch(data.body)
-                    {
-                        case(HandshakePacket.PUNCH):
-                        {
-                            console.log('Received a punch packet, stopping punch');
-                            clearInterval(this._punch_interval);
-
-                            let data = JSON.stringify({
-                                type: MessageType.PAYLOAD,
-                                body: HandshakePacket.ACK,
-                            });
-
-                            console.log('ACK packet sent');
-                            this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
-                            break;
-                        }
-                        case(HandshakePacket.ACK):
-                        {
-                            console.log('Received an ACK packet');
-                            this._connected = true;
-
-                            let data = JSON.stringify({
-                                type: MessageType.PAYLOAD,
-                                body: 'Hello my dear',
-                            });
-
-                            console.log('Sending message', data);
-                            this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
+            data = JSON.parse(message as string);
         }
         catch(error)
         {
             this.emit('error', error);
         }
+
+        switch(data.type)
+        {
+            case(MessageType.HANDSHAKE):
+            {
+                clearInterval(this._interval);
+                this._holepunch(data);
+                break;
+            }
+            case(MessageType.HOLEPUNCH):
+            {
+                console.log('Received a punch packet, stopping punch');
+                clearInterval(this._punch_interval);
+
+                let data = JSON.stringify({type: MessageType.ACK});
+
+                console.log('ACK packet sent');
+                this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
+                break;
+            }
+            case(MessageType.ACK):
+            {
+                console.log('Received an ACK packet');
+                this._connected = true;
+
+                let data = JSON.stringify({
+                    type: MessageType.PAYLOAD,
+                    body: 'Hello my dear',
+                });
+
+                console.log('Sending message', data);
+                this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
+                break;
+            }
+            case(MessageType.PAYLOAD):
+            {
+                this.emit('message', data.body);
+            }
+        }
     }
+
+  /*  default:
+        {
+            throw new Error('Unknown packet received', data);
+        }*/
 
     /**
      * Method performing the actual holepunch
@@ -212,10 +207,9 @@ export class Peer extends EventEmitter
         this._punch_interval = setInterval(() =>
         {
             console.log(`Holepunching on address ${this._remote.host}:${this._remote.port}`);
-            let data = JSON.stringify({
-                type: MessageType.PAYLOAD,
-                body: HandshakePacket.PUNCH,
-            });
+
+            let data = JSON.stringify({type: MessageType.HOLEPUNCH});
+            
             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
         }, this._retry_interval);
     }
