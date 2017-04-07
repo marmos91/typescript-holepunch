@@ -192,6 +192,8 @@ export class Peer extends EventEmitter
             {
                 clearInterval(this._interval);
                 this._holepunch(data);
+                console.log('connecting...');
+                this._socket.connect(data.port, data.host);
                 break;
             }
             case(MessageType.HOLEPUNCH):
