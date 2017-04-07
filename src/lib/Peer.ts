@@ -55,6 +55,7 @@ export class Peer extends EventEmitter
     private _host: string;
     private _port: number;
     private _interval;
+    private _punch_interval;
     private _protocol: RendezvousProtocol;
     private _retry_interval: number;
     private _connected: boolean;
@@ -153,6 +154,7 @@ export class Peer extends EventEmitter
                 }
                 case(MessageType.PAYLOAD):
                 {
+                    console.log('Receiving a payload');
                     if(this._connected)
                         this.emit('message', data.body);
 
@@ -160,21 +162,29 @@ export class Peer extends EventEmitter
                     {
                         case(HandshakePacket.PUNCH):
                         {
+                            console.log('Received a punch packet, stopping punch');
+                            clearInterval(this._punch_interval);
+
                             let data = JSON.stringify({
                                 type: MessageType.PAYLOAD,
                                 body: HandshakePacket.ACK,
                             });
 
+                            console.log('ACK packet sent');
                             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                             break;
                         }
                         case(HandshakePacket.ACK):
                         {
+                            console.log('Received an ACK packet');
+                            this._connected = true;
+
                             let data = JSON.stringify({
                                 type: MessageType.PAYLOAD,
                                 body: 'Hello my dear',
                             });
-                            this._connected = true;
+
+                            console.log('Sending message', data);
                             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                             break;
                         }
@@ -199,7 +209,7 @@ export class Peer extends EventEmitter
         console.log('Response received:', remote, 'Starting holepunch!!');
         this._remote = {id: remote.id, host: remote.host, port: remote.port};
 
-        setInterval(() =>
+        this._punch_interval = setInterval(() =>
         {
             console.log(`Holepunching on address ${this._remote.host}:${this._remote.port}`);
             let data = JSON.stringify({
