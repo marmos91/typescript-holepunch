@@ -155,7 +155,10 @@ export class Peer extends EventEmitter
         {
             let data = JSON.stringify({
                 type: HandshakeRequestType.HOLEPUNCH,
-                remote: peer_id
+                remote: peer_id,
+                peer: {
+                    id: this._id
+                }
             });
 
             this._socket.send(Buffer.from(data), 0, data.length, this._rendezvous.port, this._rendezvous.host);
