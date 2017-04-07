@@ -1,6 +1,7 @@
 import * as stream from 'stream';
 import {AddressInfo} from 'dgram';
 import {EventEmitter} from 'events';
+import construct = Reflect.construct;
 export {AddressInfo};
 
 export class UTP extends EventEmitter

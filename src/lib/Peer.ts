@@ -1,5 +1,5 @@
 import {EventEmitter} from 'events';
-import {UTP, AddressInfo} from 'utp-native';
+const utp = require('utp-native');
 
 // region interfaces
 
@@ -48,7 +48,7 @@ export interface Message
  */
 export class Peer extends EventEmitter
 {
-    private _socket: UTP;
+    private _socket: any;
     private _id: string;
     private _host: string;
     private _port: number;
@@ -79,7 +79,7 @@ export class Peer extends EventEmitter
         this._protocol = options && options.protocol || RendezvousProtocol.UTP;
         this._connected = false;
 
-        this._socket = new UTP();
+        this._socket = utp();
     }
 
     /**
@@ -115,7 +115,7 @@ export class Peer extends EventEmitter
     {
         this._interval = setInterval(() =>
         {
-            let data = JSON.stringify({"id": this._id, "remote": peer_id});
+            let data = Buffer.from(JSON.stringify({"id": this._id, "remote": peer_id}));
             this._socket.send(data, 0, data.length, this._rendezvous.port, this._rendezvous.host);
         }, this._retry_interval);
     }
@@ -136,7 +136,7 @@ export class Peer extends EventEmitter
      * @param sender {dgram.AddressInfo}: Sender infos
      * @private
      */
-    private _receive(message: string | Buffer, sender: AddressInfo)
+    private _receive(message: string | Buffer, sender: any)
     {
         let data: Message;
         try
@@ -164,7 +164,7 @@ export class Peer extends EventEmitter
                 console.log('Received a punch packet, stopping punch');
                 clearInterval(this._punch_interval);
 
-                let data = JSON.stringify({type: MessageType.ACK});
+                let data = Buffer.from(JSON.stringify({type: MessageType.ACK}));
 
                 console.log('ACK packet sent');
                 this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
@@ -175,10 +175,10 @@ export class Peer extends EventEmitter
                 console.log('Received an ACK packet');
                 this._connected = true;
 
-                let data = JSON.stringify({
+                let data = Buffer.from(JSON.stringify({
                     type: MessageType.PAYLOAD,
                     body: 'Hello my dear',
-                });
+                }));
 
                 console.log('Sending message', data);
                 this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
@@ -206,7 +206,7 @@ export class Peer extends EventEmitter
         {
             console.log(`Holepunching on address ${this._remote.host}:${this._remote.port}`);
 
-            let data = JSON.stringify({type: MessageType.HOLEPUNCH});
+            let data = Buffer.from(JSON.stringify({type: MessageType.HOLEPUNCH}));
 
             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
         }, this._retry_interval);
