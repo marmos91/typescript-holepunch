@@ -170,8 +170,12 @@ export class Peer extends EventEmitter
                         }
                         case(HandshakePacket.ACK):
                         {
+                            let data = JSON.stringify({
+                                type: MessageType.PAYLOAD,
+                                body: 'Hello my dear',
+                            });
                             this._connected = true;
-                            this._socket.send('Hello my dear', 0, 'Hello my dear'.length, this._remote.port, this._remote.host);
+                            this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                             break;
                         }
                     }
