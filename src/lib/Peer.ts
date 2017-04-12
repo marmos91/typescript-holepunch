@@ -108,15 +108,23 @@ export class Peer extends EventEmitter
     {
         return new Promise((resolve) =>
         {
-            this._socket.on('listening', () =>
+            this._socket.on('connection', (connection) =>
             {
-                console.log('Socket bound on port', this._socket.address().port);
-                this._socket.on('message', (message, sender) => this._receive(message, sender));
-                this._socket.on('error', (error) =>
-                {
-                    this._socket.close();
-                    this.emit('error', error);
-                });
+                console.log('New peer detected.');
+            });
+
+            this._socket.on('message', (message, sender) => this._receive(message, sender));
+            this._socket.on('error', (error) =>
+            {
+                this._socket.close();
+                this.emit('error', error);
+            });
+
+            this._socket.bind(this._port, this._host, () =>
+            {
+                this._host = this._socket.address().address;
+                this._port = this._socket.address().port;
+                console.log(`UDP Socket bound on ${this._host}:${this._port}`);
 
                 if(!this._initiator)
                 {
@@ -136,8 +144,6 @@ export class Peer extends EventEmitter
 
                 resolve();
             });
-
-            this._socket.bind(this._port, this._host);
         });
     }
 
@@ -188,15 +194,25 @@ export class Peer extends EventEmitter
 
         switch(data.type)
         {
-            case(MessageType.HANDSHAKE):
+            case MessageType.HANDSHAKE:
             {
                 clearInterval(this._interval);
-                this._holepunch(data);
-                console.log('connecting...');
-                this._socket.connect(data.port, data.host);
+                //this._holepunch(data);
+
+                    console.log(`Connecting from ${this._host}:${this._port} to remote host ${data.host}:${data.port}`);
+                    let connection = this._socket.connect(data.port, data.host);
+
+                    console.log('Connection established!');
+
+                    connection.on('data', (data) => console.log(data.toString()));
+
+                    console.log('Sending hello message!');
+                    connection.write('Hello!');
+
+                    console.log('Message sent');
                 break;
             }
-            case(MessageType.HOLEPUNCH):
+           /* case MessageType.HOLEPUNCH:
             {
                 console.log('Received a punch packet, stopping punch');
 
@@ -206,7 +222,7 @@ export class Peer extends EventEmitter
                 this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
                 break;
             }
-            case(MessageType.ACK):
+            case MessageType.ACK:
             {
                 clearInterval(this._punch_interval);
                 console.log('Received an ACK packet');
@@ -216,7 +232,7 @@ export class Peer extends EventEmitter
                 console.log('Trying to connect with UTP');
                 this._socket.connect(this._remote.port, this._remote.host);
                 break;
-            }
+            }*/
         }
     }
 
@@ -225,11 +241,11 @@ export class Peer extends EventEmitter
             throw new Error('Unknown packet received', data);
         }*/
 
-    /**
+/*    /!**
      * Method performing the actual holepunch
      * @param remote {Message}: The message to punch through the NAT.
      * @private
-     */
+     *!/
     private _holepunch(remote: Message)
     {
         console.log('Response received:', remote, 'Starting holepunch!!');
@@ -243,7 +259,7 @@ export class Peer extends EventEmitter
 
             this._socket.send(data, 0, data.length, this._remote.port, this._remote.host);
         }, this._retry_interval);
-    }
+    }*/
 
     // endregion
 }

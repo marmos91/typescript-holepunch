@@ -109,7 +109,7 @@ export class Rendezvous extends EventEmitter
                         request.peer.host = sender.address;
                         request.peer.port = sender.port;
                         this._peers[request.peer.id] = request.peer;
-                        console.log('Peer registered');
+                        console.log('Peer registered', request.peer);
                     }
 
                     break;
